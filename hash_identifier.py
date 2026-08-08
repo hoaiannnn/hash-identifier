@@ -1,8 +1,9 @@
+import string
 from dataclasses import dataclass
 
 # global variables
 HEX_CHARACTERS = "0123456789abcdefABCDEF"
-
+DESCRYPT_CHARACTERS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 @dataclass(frozen=True)
 class HashCandidate:
     algorithm: str
@@ -53,7 +54,18 @@ def _is_hex(s: str) -> bool:
     return all(c in HEX_CHARACTERS for c in s)
 
 def _is_mysql5(s: str) -> bool:
-    if len(s[1:]) == 40 and s[0] == "*" and _is_hex(s[1:]):
+    if len(s[1:]) == 40 and s.startswith("*") and _is_hex(s[1:]):
         return True
     return False
 
+def _is_descrypt(s: str) -> bool:
+    if len(s) == 13 and all(c in DESCRYPT_CHARACTERS for c in s):
+        return True
+    return False
+
+HEX_LENGTH_RULES: dict[int, list[str]] = {
+    32: ["MD5", "NTLM", "MD4"],
+    40: ["SHA-1"],
+    64: ["SHA-256"],
+    128: ["SHA-512"],
+}
