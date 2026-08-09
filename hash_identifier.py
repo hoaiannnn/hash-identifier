@@ -64,8 +64,11 @@ def _is_descrypt(s: str) -> bool:
     return False
 
 HEX_LENGTH_RULES: dict[int, list[str]] = {
-    32: ["MD5", "NTLM", "MD4"],
-    40: ["SHA-1"],
-    64: ["SHA-256"],
-    128: ["SHA-512"],
+    8: ["CRC32"],
+    32: ["MD5", "NTLM", "MD4", "LM"],
+    40: ["SHA-1", "RIPEMD-160"],
+    56: ["SHA-224"],
+    64: ["SHA-256", "SM3", "GOST R 34.11-94"],
+    96: ["SHA-384"],
+    128: ["SHA-512", "Whirlpool"],
 }
