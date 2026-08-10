@@ -86,6 +86,22 @@ def identify(text: str) -> list[HashCandidate]:
     if _is_descrypt(text):
         candidate = HashCandidate("DES crypt", "medium", "matched DES crypt hash format")
         return [candidate]
-        
+
+    if _is_hex(text) and len(text) in HEX_LENGTH_RULES.keys():
+        x = HEX_LENGTH_RULES[len(text)]
+        list_candidate = []
+
+        check = 0
+        for c in x:
+            if check == 0:
+                check = 1
+                candidate = HashCandidate(c, "medium", f"{len(text)} hex chars, most common")
+                list_candidate.append(candidate)
+            else:
+                candidate = HashCandidate(c, "low", f"{len(text)} hex chars, less common")
+                list_candidate.append(candidate)
+
+        return list_candidate
+            
     return []
 
