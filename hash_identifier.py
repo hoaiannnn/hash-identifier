@@ -72,3 +72,10 @@ HEX_LENGTH_RULES: dict[int, list[str]] = {
     96: ["SHA-384"],
     128: ["SHA-512", "Whirlpool"],
 }
+
+def identify(text: str) -> list[HashCandidate]:
+    for prefix, (algorithm, confidence) in PREFIX_RULES.items():
+        if text.startswith(prefix):
+            candidate = HashCandidate(algorithm, confidence, f"matched prefix '{prefix}'")
+            return [candidate]
+        return []
