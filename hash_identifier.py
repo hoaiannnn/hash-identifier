@@ -78,4 +78,14 @@ def identify(text: str) -> list[HashCandidate]:
         if text.startswith(prefix):
             candidate = HashCandidate(algorithm, confidence, f"matched prefix '{prefix}'")
             return [candidate]
-        return []
+        
+    if _is_mysql5(text):
+        candidate = HashCandidate("MySQL4.1/MySQL5", "high", "matched MySQL 4.1/MySQL5 hash format")
+        return [candidate]
+    
+    if _is_descrypt(text):
+        candidate = HashCandidate("DES crypt", "medium", "matched DES crypt hash format")
+        return [candidate]
+        
+    return []
+
