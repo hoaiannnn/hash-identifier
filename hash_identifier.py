@@ -102,6 +102,12 @@ def identify(text: str) -> list[HashCandidate]:
                 list_candidate.append(candidate)
 
         return list_candidate
-            
+
+    if text.startswith("$") and text.count("$") >= 2:
+        parts = text.split("$")
+        algorithm = parts[1]
+        candidate = HashCandidate(algorithm, "low", "Generic PHC string, specific algorithm not identified")
+        return [candidate]
+    
     return []
 
