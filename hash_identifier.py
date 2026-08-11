@@ -4,6 +4,7 @@ from dataclasses import dataclass
 # global variables
 HEX_CHARACTERS = "0123456789abcdefABCDEF"
 DESCRYPT_CHARACTERS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+BASE64_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 @dataclass(frozen=True)
 class HashCandidate:
     algorithm: str
@@ -107,6 +108,14 @@ def identify(text: str) -> list[HashCandidate]:
         parts = text.split("$")
         algorithm = parts[1]
         candidate = HashCandidate(algorithm, "low", "Generic PHC string, specific algorithm not identified")
+        return [candidate]
+
+    if text.count(".") == 2 and text.startswith("eyJ"):
+        candidate = HashCandidate("JWT", "low", "this looks like a JWT, not a hash")
+        return [candidate]
+
+    if len(text) > 0 and len(text) % 4 == 0 and all(c in BASE64_CHARACTERS for c in text):
+        candidate = HashCandidate("Base64", "low", "this looks like base64-encoded data, not a hash")
         return [candidate]
     
     return []
