@@ -146,3 +146,18 @@ def _render_table(candidates: list[HashCandidate], console: Console) -> None:
 
     console.print(table)
 
+def main() -> int:
+    parser = _build_argument_parser()
+    args = parser.parse_args()
+
+    candidates = identify(args.hash)
+
+    console = Console()
+    _render_table(candidates, console)
+
+    if not candidates:
+        return 1
+    return 0
+
+if __name__ == "__main__":
+    exit(main())
