@@ -1,11 +1,15 @@
 import string
 from dataclasses import dataclass
 import argparse
+from rich.table import Table
+from rich.console import Console
 
 # global variables
 HEX_CHARACTERS = "0123456789abcdefABCDEF"
 DESCRYPT_CHARACTERS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 BASE64_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+
+COLOR_BY_CONFIDENCE = {"high": "green", "medium": "yellow", "low": "cyan"}
 @dataclass(frozen=True)
 class HashCandidate:
     algorithm: str
@@ -125,3 +129,20 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Identify the type of a hash")
     parser.add_argument("hash", help="Hash string to identify")
     return parser
+
+def _render_table(candidates: list[HashCandidate], console: Console) -> None:
+    table = Table()
+    table.add_column("algorithm", style="cyan", no_wrap=True)
+    table.add_column("confidence")
+    table.add_column("reason", style="white")
+
+    if not candidates:
+        table.add_row("—", "[yellow]No result[/yellow]", "—")
+    else:
+        for cand in candidates:
+            color = COLOR_BY_CONFIDENCE.get(cand.confidence, "white")
+            confidence_colored = f"[{color}]{cand.confidence}[/{color}]"
+            table.add_row(cand.algorithm, confidence_colored, cand.reason)
+
+    console.print(table)
+
