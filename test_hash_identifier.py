@@ -23,3 +23,33 @@ def test_descrypt_shape_is_recognized():
     result = hash_identifier.identify("abFZSxKKDQ5s6")
     assert result[0].algorithm == "DES crypt"
     assert result[0].confidence == "medium"
+
+def test_32_char_hex_returns_multiple_candidates():
+    result = hash_identifier.identify("5f4dcc3b5aa765d61d8327deb882cf99")
+    assert len(result) == 4
+    assert result[0].algorithm == "MD5"
+    assert result[0].confidence == "medium"
+    assert result[1].confidence == "low"
+
+def test_hex_length_not_in_table_returns_empty():
+    result = hash_identifier.identify("5f4dcc3b5aa765d61d8327deb882cf99ab")
+    assert result == []
+
+def test_generic_phc_string_is_recognized():
+    result = hash_identifier.identify("$unknown$v=19$m=65536,t=3,p=4$c2FsdDEyMw$8K1bG9Z5VQxJ7YwR3nLm2Q")
+    assert result[0].algorithm == "unknown"
+    assert result[0].confidence == "low"
+
+def test_jwt_is_recognized_as_not_a_hash():
+    result = hash_identifier.identify("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature")
+    assert result[0].algorithm == "JWT"
+    assert result[0].confidence == "low"
+
+def test_base64_without_padding_is_recognized():
+    result = hash_identifier.identify("SGVsbG8gV29ybGQh")
+    assert result[0].algorithm == "Base64"
+    assert result[0].confidence == "low"
+
+def test_empty_string_returns_empty_list():
+    result = hash_identifier.identify("")
+    assert result == []
