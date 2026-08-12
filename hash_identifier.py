@@ -1,5 +1,6 @@
 import string
 from dataclasses import dataclass
+import argparse
 
 # global variables
 HEX_CHARACTERS = "0123456789abcdefABCDEF"
@@ -120,3 +121,7 @@ def identify(text: str) -> list[HashCandidate]:
     
     return []
 
+def _build_argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Identify the type of a hash")
+    parser.add_argument("hash", help="Hash string to identify")
+    return parser
