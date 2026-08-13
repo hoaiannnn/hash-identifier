@@ -77,6 +77,7 @@ def _is_descrypt(s: str) -> bool:
 
 HEX_LENGTH_RULES: dict[int, list[str]] = {
     8: ["CRC32"],
+    24: ["Tiger-128"],
     32: ["MD5", "NTLM", "MD4", "LM"],
     40: ["SHA-1", "RIPEMD-160"],
     56: ["SHA-224"],

@@ -78,3 +78,13 @@ def test_sha1crypt_prefix_is_recognized():
     result = hash_identifier.identify("$sha1$40000$abcxyz123$8d9f4a5b7e1c2d3f6g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7A8B")
     assert result[0].algorithm == "sha1crypt"
     assert result[0].confidence == "high"
+
+def test_tiger128_length_returns_tiger128():
+    result = hash_identifier.identify("a1f4c8d2e9b3a7c5d6e8f0a1")
+    assert len(result) == 1
+    assert result[0].algorithm == "Tiger-128"
+    assert result[0].confidence == "medium"
+
+def test_24_char_non_hex_does_not_match_tiger128():
+    result = hash_identifier.identify("a1f4c8d2e9b3a7c5d6e8f0gg") 
+    assert result[0].algorithm != "Tiger-128"
