@@ -51,7 +51,13 @@ PREFIX_RULES: dict[str, tuple[str, str]] = {
     "{MD5}": ("LDAP MD5", "high"),
     "{SMD5}": ("LDAP SMD5", "high"),
     "{SHA}": ("LDAP SHA", "high"),
-    "{SSHA}": ("LDAP SSHA", "high")
+    "{SSHA}": ("LDAP SSHA", "high"),
+
+    "$pbkdf2$": ("PBKDF2-SHA1 (Atlassian)", "high"),
+    "$ml$": ("macOS/iCloud Keychain", "high"),
+    "{x-pbkdf2}": ("PBKDF2 (Atlassian)", "high"),
+    "$sha1$": ("sha1crypt", "high"),
+    "$md5,": ("Solaris MD5 crypt", "high"),
 }
 
 def _is_hex(s: str) -> bool:

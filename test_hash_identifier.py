@@ -53,3 +53,28 @@ def test_base64_without_padding_is_recognized():
 def test_empty_string_returns_empty_list():
     result = hash_identifier.identify("")
     assert result == []
+
+def test_pbkdf2_atlassian_prefix_is_recognized():
+    result = hash_identifier.identify("$pbkdf2$sha1$10000$salt123$abcdefghijklmnopqrst")
+    assert result[0].algorithm == "PBKDF2-SHA1 (Atlassian)"
+    assert result[0].confidence == "high"
+
+def test_macos_keychain_prefix_is_recognized():
+    result = hash_identifier.identify("$ml$35460$93a94bd24b5de64d79a5e49fa372827e739f4d7b6975c752c9a0ff1e5cf72e05$752351df64dd2ce9dc9c64a72ad91de6581a15c19176266b44d98919dfa81f0f96cbcb20a1ffb400718c20382030f637892f776627d34e021bad4f81b7de8222")
+    assert result[0].algorithm == "macOS/iCloud Keychain"
+    assert result[0].confidence == "high"
+
+def test_x_pbkdf2_ldap_prefix_is_recognized():
+    result = hash_identifier.identify("{x-pbkdf2}8d9f4a5b7e1c2d3f6g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7A8B=")
+    assert result[0].algorithm == "PBKDF2 (Atlassian)"
+    assert result[0].confidence == "high"
+
+def test_solaris_md5_prefix_is_recognized():
+    result = hash_identifier.identify("$md5,abcxyz123$8d9f4a5b7e1c2d3f6g8h9i0j1k2l3m4=")
+    assert result[0].algorithm == "Solaris MD5 crypt"
+    assert result[0].confidence == "high"
+
+def test_sha1crypt_prefix_is_recognized():
+    result = hash_identifier.identify("$sha1$40000$abcxyz123$8d9f4a5b7e1c2d3f6g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7A8B")
+    assert result[0].algorithm == "sha1crypt"
+    assert result[0].confidence == "high"
