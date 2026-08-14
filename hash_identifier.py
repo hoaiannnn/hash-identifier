@@ -1,8 +1,8 @@
-import string
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import argparse
 from rich.table import Table
 from rich.console import Console
+import json
 
 # global variables
 HEX_CHARACTERS = "0123456789abcdefABCDEF"
@@ -135,6 +135,7 @@ def identify(text: str) -> list[HashCandidate]:
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Identify the type of a hash")
     parser.add_argument("hash", help="Hash string to identify")
+    parser.add_argument("--json", action="store_true", help="Output as JSON instead of a table")
     return parser
 
 def _render_table(candidates: list[HashCandidate], console: Console) -> None:
@@ -158,6 +159,10 @@ def main() -> int:
     args = parser.parse_args()
 
     candidates = identify(args.hash)
+
+    if args.json:
+        output = {"input": args.hash, "candidates": [asdict(candidate) for candidate in candidates]}
+        print(json.dumps(output, indent=2))
 
     console = Console()
     _render_table(candidates, console)
