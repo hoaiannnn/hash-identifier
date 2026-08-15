@@ -160,12 +160,13 @@ def main() -> int:
 
     candidates = identify(args.hash)
 
+    console = Console()
+
     if args.json:
         output = {"input": args.hash, "candidates": [asdict(candidate) for candidate in candidates]}
         print(json.dumps(output, indent=2))
-
-    console = Console()
-    _render_table(candidates, console)
+    else:
+        _render_table(candidates, console)
 
     if not candidates:
         return 1
