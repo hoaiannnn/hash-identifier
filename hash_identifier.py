@@ -3,6 +3,7 @@ import argparse
 from rich.table import Table
 from rich.console import Console
 import json
+import sys
 
 # global variables
 HEX_CHARACTERS = "0123456789abcdefABCDEF"
@@ -134,8 +135,9 @@ def identify(text: str) -> list[HashCandidate]:
 
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Identify the type of a hash")
-    parser.add_argument("hash", help="Hash string to identify")
+    parser.add_argument("hash", nargs="*", help="Hash string to identify")
     parser.add_argument("--json", action="store_true", help="Output as JSON instead of a table")
+    parser.add_argument("--file", help="Read a file")
     return parser
 
 def _render_table(candidates: list[HashCandidate], console: Console) -> None:
@@ -158,17 +160,41 @@ def main() -> int:
     parser = _build_argument_parser()
     args = parser.parse_args()
 
-    candidates = identify(args.hash)
+    if args.hash:
+        hashes = args.hash
+    elif args.file:
+        with open(args.file, "r", encoding="utf-8") as f:
+            hashes = [line.strip() for line in f if line.strip()]
+    else:
+        hashes = [line.strip() for line in sys.stdin if line.strip()]
+
+    results = []
+
+    for hash_value in hashes:
+        candidates = identify(hash_value)
+
+        results.append({"input": hash_value, "candidates": candidates})
 
     console = Console()
 
     if args.json:
-        output = {"input": args.hash, "candidates": [asdict(candidate) for candidate in candidates]}
+        output = {
+            "result": [
+                {
+                    "input":result["input"],
+                    "candidates": [asdict(candidate) for candidate in result["candidates"]],
+                }
+            for result in results
+            ]
+        }
+
         print(json.dumps(output, indent=2))
     else:
-        _render_table(candidates, console)
+        for result in results:
+            print(f"\nHash: {result['input']}")
+            _render_table(result["candidates"], console)
 
-    if not candidates:
+    if not any(result["candidates"] for result in results):
         return 1
     return 0
 
