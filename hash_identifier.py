@@ -16,6 +16,7 @@ class HashCandidate:
     algorithm: str
     confidence: str
     reason: str
+    hashcat_mode: int | None = None
 
 PREFIX_RULES: dict[str, tuple[str, str]] = {
     # Argon2
@@ -59,6 +60,34 @@ PREFIX_RULES: dict[str, tuple[str, str]] = {
     "{x-pbkdf2}": ("PBKDF2 (Atlassian)", "high"),
     "$sha1$": ("sha1crypt", "high"),
     "$md5,": ("Solaris MD5 crypt", "high"),
+}
+
+HASHCAT_MODE_BY_ALGORITHM: dict[str, int] = {
+    "MD4": 900,
+    "MD5": 0,
+    "LM": 3000,
+    "NTLM": 1000,
+    "SHA-1": 100,
+    "SHA-224": 1300,
+    "SHA-256": 1400,
+    "SHA-384": 10800,
+    "SHA-512": 1700,
+    "SHA3-224": 17300,
+    "SHA3-256": 17400,
+    "SHA3-384": 17500,
+    "SHA3-512": 17600,
+    "Keccak-224": 17700,
+    "Keccak-256": 17800,
+    "Keccak-384": 17900,
+    "Keccak-512": 18000,
+    "BLAKE2s-256": 31000,
+    "BLAKE2b-512": 600,
+    "RIPEMD-160": 6000,
+    "GOST R 34.11-2012 (256-bit)": 11700,
+    "GOST R 34.11-2012 (512-bit)": 11800,
+    "SM3": 31100,
+    "Whirlpool": 6100,
+    "CRC32": 11500,          
 }
 
 def _is_hex(s: str) -> bool:
