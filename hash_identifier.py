@@ -9,6 +9,7 @@ import sys
 HEX_CHARACTERS = "0123456789abcdefABCDEF"
 DESCRYPT_CHARACTERS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 BASE64_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+USERNAME_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
 
 COLOR_BY_CONFIDENCE = {"high": "green", "medium": "yellow", "low": "cyan"}
 @dataclass(frozen=True)
@@ -225,6 +226,7 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("hash", nargs="*", help="Hash string to identify")
     parser.add_argument("--json", action="store_true", help="Output as JSON instead of a table")
     parser.add_argument("--file", help="Read a file")
+    parser.add_argument("--split", action="store_true", help="Classify each line as username/hash/salt/garbage")
     return parser
 
 def _render_table(candidates: list[HashCandidate], console: Console) -> None:
@@ -242,6 +244,29 @@ def _render_table(candidates: list[HashCandidate], console: Console) -> None:
             table.add_row(cand.algorithm, confidence_colored, cand.reason)
 
     console.print(table)
+
+def _looks_like_username(s: str) -> bool:
+    if len(s) == 0:
+        return False
+
+    if _is_hex(s):
+        return False
+
+    return all(c in USERNAME_CHARACTERS for c in s)
+
+def classify_field(field: str) -> tuple[str, str]:
+    if _looks_like_username(field):
+        return ("username", "Looks like a username: alphanumeric, not hex")
+
+    candidates = identify(field)
+    if candidates and candidates[0].confidence in ("high", "medium"):
+        top = candidates[0]
+        return ("hash", f"{top.algorithm} ({top.confidence})")
+
+    if 4 <= len(field) <= 16:
+        return ("salt", f"{len(field)} chars, short - possibly a salt")
+
+    return ("garbage", "does not match username, hash or salt pattern")
 
 def main() -> int:
     parser = _build_argument_parser()
