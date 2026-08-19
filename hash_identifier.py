@@ -63,31 +63,89 @@ PREFIX_RULES: dict[str, tuple[str, str]] = {
 }
 
 HASHCAT_MODE_BY_ALGORITHM: dict[str, int] = {
-    "MD4": 900,
-    "MD5": 0,
-    "LM": 3000,
-    "NTLM": 1000,
-    "SHA-1": 100,
-    "SHA-224": 1300,
-    "SHA-256": 1400,
-    "SHA-384": 10800,
-    "SHA-512": 1700,
+    "MD4": 900,                               
+    "MD5": 0,                                
+    "SHA-1": 100,                             
+    "SHA-224": 1300,                           
+    "SHA-256": 1400,                          
+    "SHA-384": 10800,                           
+    "SHA-512": 1700,                            
+
+    # SHA-3
     "SHA3-224": 17300,
     "SHA3-256": 17400,
     "SHA3-384": 17500,
     "SHA3-512": 17600,
+
+    # Keccak
     "Keccak-224": 17700,
     "Keccak-256": 17800,
     "Keccak-384": 17900,
     "Keccak-512": 18000,
+
+    # BLAKE
+    "BLAKE2b-512": 600,                       
     "BLAKE2s-256": 31000,
-    "BLAKE2b-512": 600,
+
+    # Legacy / special
+    "LM": 3000,                             
+    "NTLM": 1000,                              
+    "CRC32": 11500,                            
+
+    # Other hash functions
     "RIPEMD-160": 6000,
+    "Whirlpool": 6100,
     "GOST R 34.11-2012 (256-bit)": 11700,
     "GOST R 34.11-2012 (512-bit)": 11800,
     "SM3": 31100,
-    "Whirlpool": 6100,
-    "CRC32": 11500,          
+
+    # Password hashing / KDF
+    "bcrypt": 3200,                            
+    "scrypt": 8900,                           
+    "Argon2": 34000,                          
+    "PBKDF2-HMAC-SHA1": 12001,
+    "PBKDF2-HMAC-SHA256": 10900,
+    "PBKDF2-HMAC-SHA512": 12100,
+
+    # phpass
+    "phpass": 400,                              
+
+    # Unix crypt
+    "MD5 crypt": 500,                         
+    "SHA-256 crypt": 7400,                      
+    "SHA-512 crypt": 1800,                    
+
+    # LDAP
+    "LDAP MD5": 111,
+    "LDAP SHA": 101,
+
+    # Extended for PREFIX_RULES
+    "Argon2d": 15900,
+    "Argon2i": 15700,
+    "Argon2id": 15800,
+    "bcrypt (original)": 3200,
+    "PBKDF2-HMAC-SHA256 (Django)": 10000,      
+    "PBKDF2-HMAC-SHA1 (Django)": 11000,         
+    "Argon2 (Django)": 15800,                 
+    "bcrypt-SHA256 (Django)": None,
+    "bcrypt (Django)": 3200,
+    "scrypt (Django)": 8900,
+    "Apache MD5 (APR1)": 1600,         
+    "phpass Portable": 400,
+    "phpass (phpBB)": 400,
+    "LDAP SMD5": 111,
+    "LDAP SSHA": 101,
+    "PBKDF2-SHA1 (Atlassian)": 12001,
+    "macOS/iCloud Keychain": None,
+    "PBKDF2 (Atlassian)": 12001,
+    "sha1crypt": None,
+    "Solaris MD5 crypt": 7000,
+
+    # Extended for special detections
+    "MySQL4.1/MySQL5": 300,                     
+    "DES crypt": 1500,                          
+    "Tiger-128": None,                         
+    "GOST R 34.11-94": 6900,         
 }
 
 def _is_hex(s: str) -> bool:
@@ -119,15 +177,15 @@ HEX_LENGTH_RULES: dict[int, list[str]] = {
 def identify(text: str) -> list[HashCandidate]:
     for prefix, (algorithm, confidence) in PREFIX_RULES.items():
         if text.startswith(prefix):
-            candidate = HashCandidate(algorithm, confidence, f"matched prefix '{prefix}'")
+            candidate = HashCandidate(algorithm, confidence, f"matched prefix '{prefix}'", HASHCAT_MODE_BY_ALGORITHM.get(algorithm))
             return [candidate]
         
     if _is_mysql5(text):
-        candidate = HashCandidate("MySQL4.1/MySQL5", "high", "matched MySQL 4.1/MySQL5 hash format")
+        candidate = HashCandidate("MySQL4.1/MySQL5", "high", "matched MySQL 4.1/MySQL5 hash format", HASHCAT_MODE_BY_ALGORITHM.get("MySQL4.1/MySQL5"))
         return [candidate]
     
     if _is_descrypt(text):
-        candidate = HashCandidate("DES crypt", "medium", "matched DES crypt hash format")
+        candidate = HashCandidate("DES crypt", "medium", "matched DES crypt hash format", HASHCAT_MODE_BY_ALGORITHM.get("DES crypt"))
         return [candidate]
 
     if _is_hex(text) and len(text) in HEX_LENGTH_RULES.keys():
@@ -138,10 +196,10 @@ def identify(text: str) -> list[HashCandidate]:
         for c in x:
             if check == 0:
                 check = 1
-                candidate = HashCandidate(c, "medium", f"{len(text)} hex chars, most common")
+                candidate = HashCandidate(c, "medium", f"{len(text)} hex chars, most common", HASHCAT_MODE_BY_ALGORITHM.get(c))
                 list_candidate.append(candidate)
             else:
-                candidate = HashCandidate(c, "low", f"{len(text)} hex chars, less common")
+                candidate = HashCandidate(c, "low", f"{len(text)} hex chars, less common", HASHCAT_MODE_BY_ALGORITHM.get(c))
                 list_candidate.append(candidate)
 
         return list_candidate
@@ -149,15 +207,15 @@ def identify(text: str) -> list[HashCandidate]:
     if text.startswith("$") and text.count("$") >= 2:
         parts = text.split("$")
         algorithm = parts[1]
-        candidate = HashCandidate(algorithm, "low", "Generic PHC string, specific algorithm not identified")
+        candidate = HashCandidate(algorithm, "low", "Generic PHC string, specific algorithm not identified", None)
         return [candidate]
 
     if text.count(".") == 2 and text.startswith("eyJ"):
-        candidate = HashCandidate("JWT", "low", "this looks like a JWT, not a hash")
+        candidate = HashCandidate("JWT", "low", "this looks like a JWT, not a hash", None)
         return [candidate]
 
     if len(text) > 0 and len(text) % 4 == 0 and all(c in BASE64_CHARACTERS for c in text):
-        candidate = HashCandidate("Base64", "low", "this looks like base64-encoded data, not a hash")
+        candidate = HashCandidate("Base64", "low", "this looks like base64-encoded data, not a hash", None)
         return [candidate]
     
     return []
