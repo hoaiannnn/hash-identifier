@@ -12,6 +12,7 @@ BASE64_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456
 USERNAME_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
 
 COLOR_BY_CONFIDENCE = {"high": "green", "medium": "yellow", "low": "cyan"}
+TYPE_COLOR = {"username": "blue", "hash": "green", "salt": "yellow", "garbage": "red"}
 @dataclass(frozen=True)
 class HashCandidate:
     algorithm: str
@@ -227,6 +228,7 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="Output as JSON instead of a table")
     parser.add_argument("--file", help="Read a file")
     parser.add_argument("--split", action="store_true", help="Classify each line as username/hash/salt/garbage")
+    parser.add_argument("--delimiter", default=":", help="Delimiter for split mode")
     return parser
 
 def _render_table(candidates: list[HashCandidate], console: Console) -> None:
@@ -266,7 +268,21 @@ def classify_field(field: str) -> tuple[str, str]:
     if 4 <= len(field) <= 16:
         return ("salt", f"{len(field)} chars, short - possibly a salt")
 
-    return ("garbage", "does not match username, hash or salt pattern")
+    return ("garbage", "Does not match username, hash or salt pattern")
+
+def _render_split_table(fields: list[str], console: Console) -> None:
+    table =Table()
+    table.add_column("field", style="cyan", no_wrap=True)
+    table.add_column("type")
+    table.add_column("reason", style="white")
+
+    for field in fields:
+        field_type, reason = classify_field(field)
+        color = TYPE_COLOR.get(field_type, "white")
+        type_colored = f"[{color}]{field_type}[/{color}]"
+        table.add_row(field, type_colored, reason)
+
+    console.print(table)
 
 def main() -> int:
     parser = _build_argument_parser()
@@ -278,7 +294,21 @@ def main() -> int:
         with open(args.file, "r", encoding="utf-8") as f:
             hashes = [line.strip() for line in f if line.strip()]
     else:
+        if sys.stdin.isatty():
+            parser.print_help()
+            return 0
         hashes = [line.strip() for line in sys.stdin if line.strip()]
+
+    console = Console()
+
+    if args.split:
+        delimiter = args.delimiter
+        for line in hashes:
+            fields = line.split(delimiter)
+            print(f"\nLine: {line}")
+            _render_split_table(fields, console)
+
+        return 0
 
     results = []
 
@@ -286,8 +316,6 @@ def main() -> int:
         candidates = identify(hash_value)
 
         results.append({"input": hash_value, "candidates": candidates})
-
-    console = Console()
 
     if args.json:
         output = {
