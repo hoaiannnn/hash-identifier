@@ -88,3 +88,31 @@ def test_tiger128_length_returns_tiger128():
 def test_24_char_non_hex_does_not_match_tiger128():
     result = hash_identifier.identify("a1f4c8d2e9b3a7c5d6e8f0gg") 
     assert result[0].algorithm != "Tiger-128"
+
+def test_classify_field_username_returns_username():
+    field_type, reason = hash_identifier.classify_field("hoaian")
+    assert field_type == "username"
+    assert reason == "Looks like a username: alphanumeric, not hex"
+
+
+def test_classify_field_hash_returns_hash():
+    field_type, reason = hash_identifier.classify_field("$2b$12$KIXQ4LxU8wA9z8vQeYb7T")
+    assert field_type == "hash"
+
+
+def test_classify_field_salt_returns_salt():
+    field_type, reason = hash_identifier.classify_field("s3cr3t!")
+    assert field_type == "salt"
+    assert reason == "7 chars, short - possibly a salt"
+
+
+def test_classify_field_garbage_returns_garbage():
+    field_type, reason = hash_identifier.classify_field("1234567890123456789!")
+    assert field_type == "garbage"
+    assert reason == "Does not match username, hash or salt pattern"
+
+
+def test_classify_field_administrator_is_username_not_hash():
+    field_type, reason = hash_identifier.classify_field("administrator")
+    assert field_type == "username"
+    assert reason == "Looks like a username: alphanumeric, not hex"
