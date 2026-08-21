@@ -96,7 +96,7 @@ def test_classify_field_username_returns_username():
 
 
 def test_classify_field_hash_returns_hash():
-    field_type, reason = hash_identifier.classify_field("$2b$12$KIXQ4LxU8wA9z8vQeYb7T")
+    field_type, _ = hash_identifier.classify_field("$2b$12$KIXQ4LxU8wA9z8vQeYb7T")
     assert field_type == "hash"
 
 

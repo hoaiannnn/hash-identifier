@@ -16,55 +16,64 @@ TYPE_COLOR = {"username": "blue", "hash": "green", "salt": "yellow", "garbage": 
 @dataclass(frozen=True)
 class HashCandidate:
     algorithm: str
-    confidence: str
+    confidence: float
     reason: str
     hashcat_mode: int | None = None
 
+    @property
+    def confidence_label(self) -> str:
+        if self.confidence >= 0.8:
+            return "high"
+        elif self.confidence >= 0.5:
+            return "medium"
+        else:
+            return "low"
+
 PREFIX_RULES: dict[str, tuple[str, str]] = {
     # Argon2
-    "$argon2d$": ("Argon2d", "high"),
-    "$argon2i$": ("Argon2i", "high"),
-    "$argon2id$": ("Argon2id", "high"),
+    "$argon2d$": "Argon2d",
+    "$argon2i$": "Argon2i",
+    "$argon2id$": "Argon2id",
 
     # bcrypt
-    "$2$": ("bcrypt (original)", "high"),
-    "$2a$": ("bcrypt", "high"),
-    "$2b$": ("bcrypt", "high"),
-    "$2y$": ("bcrypt", "high"),
-    "$2x$": ("bcrypt", "high"),
+    "$2$": "bcrypt (original)",
+    "$2a$": "bcrypt",
+    "$2b$": "bcrypt",
+    "$2y$": "bcrypt",
+    "$2x$": "bcrypt",
 
     # PBKDF2
-    "pbkdf2_sha256$": ("PBKDF2-HMAC-SHA256 (Django)", "high"),
-    "pbkdf2_sha1$": ("PBKDF2-HMAC-SHA1 (Django)", "high"),
-    "argon2$": ("Argon2 (Django)", "high"),
-    "bcrypt_sha256$": ("bcrypt-SHA256 (Django)", "high"),
-    "bcrypt$": ("bcrypt (Django)", "high"),
-    "scrypt$": ("scrypt (Django)", "high"),
+    "pbkdf2_sha256$": "PBKDF2-HMAC-SHA256 (Django)",
+    "pbkdf2_sha1$": "PBKDF2-HMAC-SHA1 (Django)",
+    "argon2$": "Argon2 (Django)",
+    "bcrypt_sha256$": "bcrypt-SHA256 (Django)",
+    "bcrypt$": "bcrypt (Django)",
+    "scrypt$": "scrypt (Django)",
 
     # Unix crypt(3) family
-    "$6$": ("SHA-512 crypt", "high"),
-    "$5$": ("SHA-256 crypt", "high"),
-    "$1$": ("MD5 crypt", "high"),
-    "$apr1$": ("Apache MD5 (APR1)", "high"),
+    "$6$": "SHA-512 crypt",
+    "$5$": "SHA-256 crypt",
+    "$1$": "MD5 crypt",
+    "$apr1$": "Apache MD5 (APR1)",
 
     # phpass
-    "$P$": ("phpass Portable", "high"),
-    "$H$": ("phpass (phpBB)", "high"),
+    "$P$": "phpass Portable",
+    "$H$": "phpass (phpBB)",
     
     # Hash Function
-    "{MD5}": ("LDAP MD5", "high"),
-    "{SMD5}": ("LDAP SMD5", "high"),
-    "{SHA}": ("LDAP SHA", "high"),
-    "{SSHA}": ("LDAP SSHA", "high"),
+    "{MD5}": "LDAP MD5",
+    "{SMD5}": "LDAP SMD5",
+    "{SHA}": "LDAP SHA",
+    "{SSHA}": "LDAP SSHA",
 
-    "$pbkdf2$": ("PBKDF2-SHA1 (Atlassian)", "high"),
-    "$ml$": ("macOS/iCloud Keychain", "high"),
-    "{x-pbkdf2}": ("PBKDF2 (Atlassian)", "high"),
-    "$sha1$": ("sha1crypt", "high"),
-    "$md5,": ("Solaris MD5 crypt", "high"),
+    "$pbkdf2$": "PBKDF2-SHA1 (Atlassian)",
+    "$ml$": "macOS/iCloud Keychain",
+    "{x-pbkdf2}": "PBKDF2 (Atlassian)",
+    "$sha1$": "sha1crypt",
+    "$md5,": "Solaris MD5 crypt",
 }
 
-HASHCAT_MODE_BY_ALGORITHM: dict[str, int] = {
+HASHCAT_MODE_BY_ALGORITHM: dict[str, int | None] = {
     "MD4": 900,                               
     "MD5": 0,                                
     "SHA-1": 100,                             
@@ -177,31 +186,31 @@ HEX_LENGTH_RULES: dict[int, list[str]] = {
 }
 
 def identify(text: str) -> list[HashCandidate]:
-    for prefix, (algorithm, confidence) in PREFIX_RULES.items():
+    for prefix, algorithm in PREFIX_RULES.items():
         if text.startswith(prefix):
-            candidate = HashCandidate(algorithm, confidence, f"matched prefix '{prefix}'", HASHCAT_MODE_BY_ALGORITHM.get(algorithm))
+            candidate = HashCandidate(algorithm, 0.95, f"matched prefix '{prefix}'", HASHCAT_MODE_BY_ALGORITHM.get(algorithm))
             return [candidate]
         
     if _is_mysql5(text):
-        candidate = HashCandidate("MySQL4.1/MySQL5", "high", "matched MySQL 4.1/MySQL5 hash format", HASHCAT_MODE_BY_ALGORITHM.get("MySQL4.1/MySQL5"))
+        candidate = HashCandidate("MySQL4.1/MySQL5", 0.85, "matched MySQL 4.1/MySQL5 hash format", HASHCAT_MODE_BY_ALGORITHM.get("MySQL4.1/MySQL5"))
         return [candidate]
     
     if _is_descrypt(text):
-        candidate = HashCandidate("DES crypt", "medium", "matched DES crypt hash format", HASHCAT_MODE_BY_ALGORITHM.get("DES crypt"))
+        candidate = HashCandidate("DES crypt", 0.70, "matched DES crypt hash format", HASHCAT_MODE_BY_ALGORITHM.get("DES crypt"))
         return [candidate]
 
     if _is_hex(text) and len(text) in HEX_LENGTH_RULES.keys():
         x = HEX_LENGTH_RULES[len(text)]
         list_candidate = []
 
-        check = 0
-        for c in x:
-            if check == 0:
-                check = 1
-                candidate = HashCandidate(c, "medium", f"{len(text)} hex chars, most common", HASHCAT_MODE_BY_ALGORITHM.get(c))
+        for i, c in enumerate(x):
+            if i == 0:
+                score = 0.55
+                candidate = HashCandidate(c, score, f"{len(text)} hex chars, most common", HASHCAT_MODE_BY_ALGORITHM.get(c))
                 list_candidate.append(candidate)
             else:
-                candidate = HashCandidate(c, "low", f"{len(text)} hex chars, less common", HASHCAT_MODE_BY_ALGORITHM.get(c))
+                score = 0.55 / (i + 1)
+                candidate = HashCandidate(c, score, f"{len(text)} hex chars, less common", HASHCAT_MODE_BY_ALGORITHM.get(c))
                 list_candidate.append(candidate)
 
         return list_candidate
@@ -209,15 +218,15 @@ def identify(text: str) -> list[HashCandidate]:
     if text.startswith("$") and text.count("$") >= 2:
         parts = text.split("$")
         algorithm = parts[1]
-        candidate = HashCandidate(algorithm, "low", "Generic PHC string, specific algorithm not identified", None)
+        candidate = HashCandidate(algorithm, 0.30, "Generic PHC string, specific algorithm not identified", None)
         return [candidate]
 
     if text.count(".") == 2 and text.startswith("eyJ"):
-        candidate = HashCandidate("JWT", "low", "this looks like a JWT, not a hash", None)
+        candidate = HashCandidate("JWT", 0.30, "this looks like a JWT, not a hash", None)
         return [candidate]
 
     if len(text) > 0 and len(text) % 4 == 0 and all(c in BASE64_CHARACTERS for c in text):
-        candidate = HashCandidate("Base64", "low", "this looks like base64-encoded data, not a hash", None)
+        candidate = HashCandidate("Base64", 0.30, "this looks like base64-encoded data, not a hash", None)
         return [candidate]
     
     return []
@@ -241,8 +250,9 @@ def _render_table(candidates: list[HashCandidate], console: Console) -> None:
         table.add_row("—", "[yellow]No result[/yellow]", "—")
     else:
         for cand in candidates:
-            color = COLOR_BY_CONFIDENCE.get(cand.confidence, "white")
-            confidence_colored = f"[{color}]{cand.confidence}[/{color}]"
+            label = cand.confidence_label   
+            color = COLOR_BY_CONFIDENCE.get(label, "white")
+            confidence_colored = f"[{color}]{label}[/{color}]"
             table.add_row(cand.algorithm, confidence_colored, cand.reason)
 
     console.print(table)
@@ -261,9 +271,9 @@ def classify_field(field: str) -> tuple[str, str]:
         return ("username", "Looks like a username: alphanumeric, not hex")
 
     candidates = identify(field)
-    if candidates and candidates[0].confidence in ("high", "medium"):
+    if candidates and candidates[0].confidence >= 0.5:
         top = candidates[0]
-        return ("hash", f"{top.algorithm} ({top.confidence})")
+        return ("hash", f"{top.algorithm} ({top.confidence_label})")
 
     if 4 <= len(field) <= 16:
         return ("salt", f"{len(field)} chars, short - possibly a salt")
