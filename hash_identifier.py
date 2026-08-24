@@ -8,10 +8,10 @@ import sys
 # global variables
 HEX_CHARACTERS = "0123456789abcdefABCDEF"
 DESCRYPT_CHARACTERS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-BASE64_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 USERNAME_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
-BASE58_CHARACTERS = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 BASE32_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+BASE58_CHARACTERS = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+BASE64_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 COLOR_BY_CONFIDENCE = {"high": "green", "medium": "yellow", "low": "cyan"}
 TYPE_COLOR = {"username": "blue", "hash": "green", "salt": "yellow", "garbage": "red"}
@@ -161,21 +161,6 @@ HASHCAT_MODE_BY_ALGORITHM: dict[str, int | None] = {
     "GOST R 34.11-94": 6900,         
 }
 
-def _is_hex(s: str) -> bool:
-    if len(s) <= 0:
-        return False
-    return all(c in HEX_CHARACTERS for c in s)
-
-def _is_mysql5(s: str) -> bool:
-    if len(s[1:]) == 40 and s.startswith("*") and _is_hex(s[1:]):
-        return True
-    return False
-
-def _is_descrypt(s: str) -> bool:
-    if len(s) == 13 and all(c in DESCRYPT_CHARACTERS for c in s):
-        return True
-    return False
-
 HEX_LENGTH_RULES: dict[int, list[str]] = {
     8: ["CRC32"],
     24: ["Tiger-128"],
@@ -187,66 +172,134 @@ HEX_LENGTH_RULES: dict[int, list[str]] = {
     128: ["SHA-512", "Whirlpool"],
 }
 
+# Helper validators
+def _is_hex(s: str) -> bool:
+    if len(s) <= 0:
+        return False
+    return all(c in HEX_CHARACTERS for c in s)
+
+def _is_base32(s: str) -> bool:
+    if not s:
+        return False
+
+    data = s.rstrip("=")
+
+    if "=" in data:
+        return False
+
+    if not all(c in BASE32_CHARACTERS for c in data):
+        return False
+
+    if "=" in s and not s.startswith(data):
+        return False
+
+    if "=" in s and len(s) % 8 != 0:
+        return False
+
+    return True
+
+def _is_base58(s: str) -> bool:
+    if not s:
+        return False
+
+    return all(c in BASE58_CHARACTERS for c in s)
+
+def _is_base64(s: str) -> bool:
+    if not s:
+        return False
+
+    if len(s) % 4 != 0:
+        return False
+
+    if "=" in s:
+        padding_start = s.find("=")
+
+        if not all(c == "=" for c in s[padding_start:]):
+            return False
+
+        if len(s) - padding_start > 2:
+            return False
+
+    return all(c in BASE64_CHARACTERS or c == "=" for c in s)
+
+def _is_mysql5(s: str) -> bool:
+    if len(s[1:]) == 40 and s.startswith("*") and _is_hex(s[1:]):
+        return True
+    return False
+
+def _is_descrypt(s: str) -> bool:
+    if len(s) == 13 and all(c in DESCRYPT_CHARACTERS for c in s):
+        return True
+    return False
+
+# Candidate helper
+def _candidate(algorithm: str, confidence: float, reason: str) -> HashCandidate:
+    return HashCandidate(algorithm=algorithm, confidence=confidence, reason=reason, hashcat_mode=HASHCAT_MODE_BY_ALGORITHM.get(algorithm))
+
 def identify(text: str) -> list[HashCandidate]:
+    # 1. Strong detection: prefix
     for prefix, algorithm in PREFIX_RULES.items():
         if text.startswith(prefix):
-            candidate = HashCandidate(algorithm, 0.95, f"matched prefix '{prefix}'", HASHCAT_MODE_BY_ALGORITHM.get(algorithm))
-            return [candidate]
-        
+            return [_candidate(algorithm, 0.95, f"matched prefix '{prefix}'")]
+
+    # 2. Strong / special formats
     if _is_mysql5(text):
-        candidate = HashCandidate("MySQL4.1/MySQL5", 0.85, "matched MySQL 4.1/MySQL5 hash format", HASHCAT_MODE_BY_ALGORITHM.get("MySQL4.1/MySQL5"))
-        return [candidate]
+        return [_candidate("MySQL4.1/MySQL5", 0.85, "matched MySQL 4.1/MySQL5 hash format")]
     
     if _is_descrypt(text):
-        candidate = HashCandidate("DES crypt", 0.70, "matched DES crypt hash format", HASHCAT_MODE_BY_ALGORITHM.get("DES crypt"))
-        return [candidate]
+        return [_candidate("DES crypt", 0.70, "matched DES crypt hash format")]
 
+    # 3. Hexadecimal hashes
     if _is_hex(text) and len(text) in HEX_LENGTH_RULES.keys():
         x = HEX_LENGTH_RULES[len(text)]
-        list_candidate = []
+        candidates = []
 
-        for i, c in enumerate(x):
-            if i == 0:
-                score = 0.55
-                candidate = HashCandidate(c, score, f"{len(text)} hex chars, most common", HASHCAT_MODE_BY_ALGORITHM.get(c))
-                list_candidate.append(candidate)
+        for index, algorithm in enumerate(x):
+            if index == 0:
+                confidence = 0.55
+                reason = (f"{len(text)} hex chars, most common")
             else:
-                score = 0.55 / (i + 1)
-                candidate = HashCandidate(c, score, f"{len(text)} hex chars, less common", HASHCAT_MODE_BY_ALGORITHM.get(c))
-                list_candidate.append(candidate)
+                confidence = 0.55 / (index + 1)
+                reason = (f"{len(text)} hex chars, less common")
 
-        return list_candidate
+            candidates.append(_candidate(algorithm, confidence, reason))
 
+        return candidates
+
+    # 4. Generic PHC string
     if text.startswith("$") and text.count("$") >= 2:
         parts = text.split("$")
         algorithm = parts[1]
-        candidate = HashCandidate(algorithm, 0.30, "Generic PHC string, specific algorithm not identified", None)
-        return [candidate]
+        return [_candidate(algorithm, 0.30, "Generic PHC string, specific algorithm not identified")]
 
+    # 5. URL
     if text.startswith("http://") or text.startswith("https://"):
-        candidate = HashCandidate("URL", 0.30, "this looks like a URL, not a hash", None)
-        return [candidate]
-
-    if text.startswith("0x") and _is_hex(text[2:]):
-        candidate = HashCandidate("Hex with 0x prefix", 0.30, "this looks like a hex address (Ethereum, memory), not a hash", None)
-        return [candidate]
-
-    if text.count(".") == 2 and text.startswith("eyJ"):
-        candidate = HashCandidate("JWT", 0.30, "this looks like a JWT, not a hash", None)
-        return [candidate]
-
-    if len(text) > 0 and all(c in BASE32_CHARACTERS for c in text):
-        candidate = HashCandidate("Base32", 0.30, "this looks like32-encoded data, not a hash", None)
-        return [candidate]
-
-    if  25 <= len(text) <= 34 and not _is_hex(text) and all(c in BASE58_CHARACTERS for c in text):
-            candidate = HashCandidate("Base58", 0.30, "this looks like58-encoded data, not a hash", None)
-            return [candidate]
-
-    if len(text) > 0 and len(text) % 4 == 0 and all(c in BASE64_CHARACTERS for c in text):
-        candidate = HashCandidate("Base64", 0.30, "this looks like base64-encoded data, not a hash", None)
-        return [candidate]
+        return [_candidate("URL", 0.30, "this looks like a URL, not a hash")]
     
+     # 6. Hex with 0x prefix
+    if text.startswith("0x") and _is_hex(text[2:]):
+        return [_candidate("Hex with 0x prefix", 0.30, "this looks like a hex address (Ethereum, memory), not a hash")]
+
+    # 7. JWT
+    if text.count(".") == 2 and text.startswith("eyJ"):
+        return [_candidate("JWT", 0.30, "this looks like a JWT, not a hash")]
+
+    # 8. Encoded data
+    encoding_candidates = []
+
+    if 8 <= len(text) and _is_base32(text):
+        encoding_candidates.append(_candidate("Base32", 0.3, "this looks like Base32-encoded data not a hash"))
+
+    if 25 <= len(text) <= 34 and not _is_hex(text) and _is_base58(text):
+        encoding_candidates.append(_candidate("Base58", 0.3, "this looks like Base58-encoded data not a hash"))
+
+    if _is_base64(text):
+        encoding_candidates.append(_candidate("Base64", 0.3, "this looks like Base64-encoded data not a hash"))
+
+    if encoding_candidates:
+        return encoding_candidates
+
+    # 9. No match
     return []
 
 def _build_argument_parser() -> argparse.ArgumentParser:
