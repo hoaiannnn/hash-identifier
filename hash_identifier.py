@@ -10,6 +10,8 @@ HEX_CHARACTERS = "0123456789abcdefABCDEF"
 DESCRYPT_CHARACTERS = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 BASE64_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 USERNAME_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+BASE58_CHARACTERS = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+BASE32_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
 
 COLOR_BY_CONFIDENCE = {"high": "green", "medium": "yellow", "low": "cyan"}
 TYPE_COLOR = {"username": "blue", "hash": "green", "salt": "yellow", "garbage": "red"}
@@ -221,9 +223,25 @@ def identify(text: str) -> list[HashCandidate]:
         candidate = HashCandidate(algorithm, 0.30, "Generic PHC string, specific algorithm not identified", None)
         return [candidate]
 
+    if text.startswith("http://") or text.startswith("https://"):
+        candidate = HashCandidate("URL", 0.30, "this looks like a URL, not a hash", None)
+        return [candidate]
+
+    if text.startswith("0x") and _is_hex(text[2:]):
+        candidate = HashCandidate("Hex with 0x prefix", 0.30, "this looks like a hex address (Ethereum, memory), not a hash", None)
+        return [candidate]
+
     if text.count(".") == 2 and text.startswith("eyJ"):
         candidate = HashCandidate("JWT", 0.30, "this looks like a JWT, not a hash", None)
         return [candidate]
+
+    if len(text) > 0 and all(c in BASE32_CHARACTERS for c in text):
+        candidate = HashCandidate("Base32", 0.30, "this looks like32-encoded data, not a hash", None)
+        return [candidate]
+
+    if  25 <= len(text) <= 34 and not _is_hex(text) and all(c in BASE58_CHARACTERS for c in text):
+            candidate = HashCandidate("Base58", 0.30, "this looks like58-encoded data, not a hash", None)
+            return [candidate]
 
     if len(text) > 0 and len(text) % 4 == 0 and all(c in BASE64_CHARACTERS for c in text):
         candidate = HashCandidate("Base64", 0.30, "this looks like base64-encoded data, not a hash", None)
