@@ -117,3 +117,23 @@ def test_classify_field_administrator_is_username_not_hash():
     field_type, reason = hash_identifier.classify_field("administrator")
     assert field_type == "username"
     assert reason == "Looks like a username: alphanumeric, not hex"
+
+def test_url_is_recognized_as_not_a_hash():
+    result = hash_identifier.identify("https://example.com/path")
+    assert result[0].algorithm == "URL"
+
+def test_hex_with_0x_prefix_is_recognized():
+    result = hash_identifier.identify("0x5f4dcc3b5aa765d61d8327deb882cf99")
+    assert result[0].algorithm == "Hex with 0x prefix"
+
+def test_hex_with_0x_prefix_is_recognized():
+    result = hash_identifier.identify("JBSWY3DPEBLW64TMMQ======")
+    assert result[0].algorithm == "Base32"
+    assert result[0].confidence == 0.3
+    assert result[0].reason == "this looks like Base32-encoded data not a hash"
+
+def test_hex_with_0x_prefix_is_recognized():
+    result = hash_identifier.identify("3MN5qK7xR9vT2pL8wY4cD6sH1")
+    assert result[0].algorithm == "Base58"
+    assert result[0].confidence == 0.3
+    assert result[0].reason == "this looks like Base58-encoded data not a hash"
