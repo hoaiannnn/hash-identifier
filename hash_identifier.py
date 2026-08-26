@@ -21,6 +21,7 @@ class HashCandidate:
     confidence: float
     reason: str
     hashcat_mode: int | None = None
+    crack_difficulty: str | None = None
 
     @property
     def confidence_label(self) -> str:
@@ -161,6 +162,19 @@ HASHCAT_MODE_BY_ALGORITHM: dict[str, int | None] = {
     "GOST R 34.11-94": 6900,         
 }
 
+CRACK_DIFFICULTY_BY_ALGORITHM: dict[str, str] = {
+    "MD5": "trivial",
+    "MD4": "trivial",
+    "NTLM": "trivial",
+    "SHA-1": "trivial",
+    "SHA-256": "moderate",
+    "SHA-512": "moderate",
+    "bcrypt": "hard",
+    "SHA-512 crypt": "hard",
+    "Argon2id": "very_hard",
+    "scrypt": "very_hard",
+}
+
 HEX_LENGTH_RULES: dict[int, list[str]] = {
     8: ["CRC32"],
     24: ["Tiger-128"],
@@ -234,7 +248,11 @@ def _is_descrypt(s: str) -> bool:
 
 # Candidate helper
 def _candidate(algorithm: str, confidence: float, reason: str) -> HashCandidate:
-    return HashCandidate(algorithm=algorithm, confidence=confidence, reason=reason, hashcat_mode=HASHCAT_MODE_BY_ALGORITHM.get(algorithm))
+    return HashCandidate(algorithm=algorithm,
+                         confidence=confidence,
+                         reason=reason,
+                         hashcat_mode=HASHCAT_MODE_BY_ALGORITHM.get(algorithm),
+                         crack_difficulty=CRACK_DIFFICULTY_BY_ALGORITHM.get(algorithm))
 
 def identify(text: str) -> list[HashCandidate]:
     # 1. Strong detection: prefix
