@@ -247,17 +247,45 @@ def _is_descrypt(s: str) -> bool:
     return False
 
 # Candidate helper
-def _candidate(algorithm: str, confidence: float, reason: str) -> HashCandidate:
+def _candidate(algorithm: str, confidence: float, reason: str, crack_difficulty: str | None = None) -> HashCandidate:
+    if crack_difficulty is None:
+        crack_difficulty = CRACK_DIFFICULTY_BY_ALGORITHM.get(algorithm)
+
     return HashCandidate(algorithm=algorithm,
                          confidence=confidence,
                          reason=reason,
                          hashcat_mode=HASHCAT_MODE_BY_ALGORITHM.get(algorithm),
-                         crack_difficulty=CRACK_DIFFICULTY_BY_ALGORITHM.get(algorithm))
+                         crack_difficulty=crack_difficulty)
+
+def _bcrypt_crack_difficulty(text: str) -> str | None:
+    parts = text.split("$")
+
+    if len(parts[2]) != 4:
+        return None
+
+    try:
+        cost = int(parts[2])
+    except ValueError:
+        return None
+
+    if cost < 4 or cost > 31:
+        return None
+    
+    if cost < 10:
+        return "moderate"
+    elif cost <= 12:
+        return "hard"
+    else:
+        return "very_hard"
 
 def identify(text: str) -> list[HashCandidate]:
     # 1. Strong detection: prefix
     for prefix, algorithm in PREFIX_RULES.items():
         if text.startswith(prefix):
+            if algorithm == "bcrypt":
+                difficulty = _bcrypt_crack_difficulty(text)
+                return [_candidate(algorithm, 0.95, f"matched prefix '{prefix}'", difficulty)]
+            
             return [_candidate(algorithm, 0.95, f"matched prefix '{prefix}'")]
 
     # 2. Strong / special formats
@@ -369,17 +397,27 @@ def classify_field(field: str) -> tuple[str, str]:
 
     return ("garbage", "Does not match username, hash or salt pattern")
 
-def _render_split_table(fields: list[str], console: Console) -> None:
+def _render_split_table(candidates: list[HashCandidate], console: Console) -> None:
     table =Table()
     table.add_column("field", style="cyan", no_wrap=True)
     table.add_column("type")
+    table.add_column("crack difficulty")
     table.add_column("reason", style="white")
 
-    for field in fields:
-        field_type, reason = classify_field(field)
-        color = TYPE_COLOR.get(field_type, "white")
-        type_colored = f"[{color}]{field_type}[/{color}]"
-        table.add_row(field, type_colored, reason)
+    if not candidates:
+        table.add_row("-", "[yellow]No result[/yellow]", "—", "—")
+    else:
+        for cand in candidates:
+            label = cand.confidence_label
+            color = COLOR_BY_CONFIDENCE.get(label, "white")
+            confidence_colored = f"[{color}]{label}[/{color}]"
+
+            table.add_row(
+                cand.algorithm,
+                confidence_colored,
+                cand.crack_difficulty or "unknown",
+                cand.reason
+            )
 
     console.print(table)
 

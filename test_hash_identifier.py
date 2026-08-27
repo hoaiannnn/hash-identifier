@@ -137,3 +137,20 @@ def test_base58_is_recognized():
     assert result[0].algorithm == "Base58"
     assert result[0].confidence == 0.3
     assert result[0].reason == "this looks like Base58-encoded data not a hash"
+
+def test_md5_crack_difficulty():
+    result = hash_identifier.identify(
+        "5f4dcc3b5aa765d61d8327deb882cf99"
+    )
+
+    assert result[0].algorithm == "MD5"
+    assert result[0].crack_difficulty == "trivial"
+
+
+def test_sha1_crack_difficulty():
+    result = hash_identifier.identify(
+        "a9993e364706816aba3e25717850c26c9cd0d89d"
+    )
+
+    assert result[0].algorithm == "SHA-1"
+    assert result[0].crack_difficulty == "trivial"
