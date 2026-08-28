@@ -359,18 +359,29 @@ def _build_argument_parser() -> argparse.ArgumentParser:
 
 def _render_table(candidates: list[HashCandidate], console: Console) -> None:
     table = Table()
-    table.add_column("algorithm", style="cyan", no_wrap=True)
-    table.add_column("confidence")
-    table.add_column("reason", style="white")
+    table.add_column("Algorithm", style="cyan", no_wrap=True)
+    table.add_column("Confidence", justify="right")
+    table.add_column("Hashcat Mode", justify="right")
+    table.add_column("Crack Difficulty")
+    table.add_column("Reason", style="white")
 
     if not candidates:
-        table.add_row("—", "[yellow]No result[/yellow]", "—")
+        table.add_row("—", "", "", "", "[yellow]No result[/yellow]")
     else:
         for cand in candidates:
-            label = cand.confidence_label   
+            label = cand.confidence_label
             color = COLOR_BY_CONFIDENCE.get(label, "white")
-            confidence_colored = f"[{color}]{label}[/{color}]"
-            table.add_row(cand.algorithm, confidence_colored, cand.reason)
+            conf_str = f"{cand.confidence:.2f}"
+            confidence_colored = f"[{color}]{conf_str}[/{color}]"
+            mode_str = str(cand.hashcat_mode) if cand.hashcat_mode is not None else "—"
+            diff_str = cand.crack_difficulty or "—"
+            table.add_row(
+                cand.algorithm,
+                confidence_colored,
+                mode_str,
+                diff_str,
+                cand.reason
+            )
 
     console.print(table)
 
