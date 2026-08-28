@@ -154,3 +154,16 @@ def test_sha1_crack_difficulty():
 
     assert result[0].algorithm == "SHA-1"
     assert result[0].crack_difficulty == "trivial"
+
+
+def test_bcrypt_crack_difficulty_low_cost():
+    result = hash_identifier.identify("$2b$04$abcdefghijklmnopqrstuu")
+
+    assert result[0].algorithm == "bcrypt"
+    assert result[0].crack_difficulty == "moderate"
+
+def test_bcrypt_crack_difficulty_high_cost():
+    result = hash_identifier.identify("$2b$14$abcdefghijklmnopqrstuu")
+
+    assert result[0].algorithm == "bcrypt"
+    assert result[0].crack_difficulty == "very_hard"

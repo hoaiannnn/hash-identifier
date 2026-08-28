@@ -260,7 +260,7 @@ def _candidate(algorithm: str, confidence: float, reason: str, crack_difficulty:
 def _bcrypt_crack_difficulty(text: str) -> str | None:
     parts = text.split("$")
 
-    if len(parts[2]) != 4:
+    if len(parts) < 3:
         return None
 
     try:
@@ -397,27 +397,29 @@ def classify_field(field: str) -> tuple[str, str]:
 
     return ("garbage", "Does not match username, hash or salt pattern")
 
-def _render_split_table(candidates: list[HashCandidate], console: Console) -> None:
-    table =Table()
+def _render_split_table(fields: list[str], console: Console) -> None:
+    table = Table()
     table.add_column("field", style="cyan", no_wrap=True)
     table.add_column("type")
     table.add_column("crack difficulty")
     table.add_column("reason", style="white")
 
-    if not candidates:
-        table.add_row("-", "[yellow]No result[/yellow]", "—", "—")
-    else:
-        for cand in candidates:
-            label = cand.confidence_label
-            color = COLOR_BY_CONFIDENCE.get(label, "white")
-            confidence_colored = f"[{color}]{label}[/{color}]"
+    for field in fields:
+        field_type, reason = classify_field(field)
 
-            table.add_row(
-                cand.algorithm,
-                confidence_colored,
-                cand.crack_difficulty or "unknown",
-                cand.reason
-            )
+        difficulty = "unknown"
+
+        if field_type == "hash":
+            candidates = identify(field)
+            if candidates:
+                difficulty = candidates[0].crack_difficulty or "unknown"
+
+        table.add_row(
+            field,
+            field_type,
+            difficulty,
+            reason
+        )
 
     console.print(table)
 
