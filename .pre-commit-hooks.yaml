@@ -1,0 +1,6 @@
+- id: hash-identifier-check
+  name: Check for accidentally committed hashes
+  description: Scans changed files for strings that look like real password hashes
+  entry: python pre_commit_check.py
+  language: python
+  files: \.(py|txt|json|env|yaml|yml)$
